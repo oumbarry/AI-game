@@ -330,11 +330,92 @@ class Game:
 
     def perform_move(self, coords: CoordPair) -> Tuple[bool, str]:
         """Validate and perform a move expressed as a CoordPair. TODO: WRITE MISSING CODE!!!"""
+        if isinstance(coords.dst, tuple):
+            coords.dst = Coord(coords.dst[0], coords.dst[1])
+
+        src_unit = self.get(coords.src)
+        dst_unit = self.get(coords.dst)
+
+        if src_unit is None:  # Added check to ensure source unit exists
+            return False, "Invalid move: Source unit does not exist."
+
+        if src_unit == dst_unit:
+            if src_unit.player != self.next_player:
+                return False, "Invalid move: Cannot self-destruct opponent's unit."
+            # Self-destruct: Remove the unit and damage surrounding units
+            for adj_coord in coords.src.iter_range(1):
+                adj_unit = self.get(adj_coord)
+                if adj_unit is not None:
+                    adj_unit.health -= 2
+                    if not adj_unit.is_alive():
+                        self.set(adj_coord, None)
+
+            src_unit.health = 0
+            # Check if units were defeated in the process
+            if not src_unit.is_alive():
+                self.remove_dead(coords.src)
+            if not dst_unit.is_alive():
+                self.remove_dead(coords.dst)
+            return True, "Self-destruct successful"
+
+        if dst_unit is not None and dst_unit.player != src_unit.player:
+            # Check if the source unit can attack the destination unit
+            if (abs(coords.dst.row - coords.src.row) == 1 and coords.dst.col == coords.src.col) or \
+                    (abs(coords.dst.col - coords.src.col) == 1 and coords.dst.row == coords.src.row):
+                # Units can attack if they are adjacent in any of the four cardinal directions
+                damage_src = src_unit.damage_amount(dst_unit)
+                damage_dst = dst_unit.damage_amount(src_unit)
+                dst_unit.health -= damage_src
+                src_unit.health -= damage_dst
+
+                # Check if units were defeated in the process
+                if not src_unit.is_alive():
+                    self.remove_dead(coords.src)
+                if not dst_unit.is_alive():
+                    self.remove_dead(coords.dst)
+
+                if src_unit.is_alive():
+                    return True, "attack successful"
+                else:
+                    return True, "attack successful, source unit defeated"
+            else:
+                return False, "Invalid move: Cannot move onto the same position as the target unit after attacking"
+
+
+        if src_unit is not None and dst_unit is not None:
+            # The source and destination units exist, proceed with the move logic
+            if coords.dst in list(coords.src.iter_adjacent()):
+                if src_unit.player == dst_unit.player:
+                    if dst_unit.health < 9:  # Check if the target unit is not at full health
+                        amount = src_unit.repair_amount(dst_unit)
+                        if amount > 0:
+                            dst_unit.health += amount
+                            return True, f"Repair successful. {dst_unit.type} is healed by {amount} health."
+                    else:
+                        return False, "Invalid move: The unit is already at full health."
+                else:
+                    return False, "Invalid move: Units must belong to the same player to perform a repair action."
+
         if self.is_valid_move(coords):
-            self.set(coords.dst, self.get(coords.src))
-            self.set(coords.src, None)
-            return (True, "")
-        return (False, "invalid move")
+            # Check if there are adjacent adversarial units
+            for adj_coord in coords.dst.iter_adjacent():
+                if self.is_valid_coord(adj_coord):
+                    adj_unit = self.get(adj_coord)
+                    if adj_unit is not None and adj_unit.player != src_unit.player:
+                        src_unit.in_combat = True
+                        adj_unit.in_combat = True
+                        break
+
+
+            # Check if the source unit is still alive before moving
+            if src_unit.is_alive():
+                self.set(coords.dst, src_unit)
+                self.set(coords.src, None)
+                return True, "Move successful"
+            else:
+                return False, "Invalid move: Source unit is defeated."
+
+        return False, "Invalid move"
 
     def next_turn(self):
         """Transitions game to the next turn."""
