@@ -42,6 +42,25 @@ class GameType(Enum):
     CompVsDefender = 2
     CompVsComp = 3
 
+class TraceLogger:
+    def __init__(self):
+        self._output_file = None
+        self._init = False
+
+    def init(self, filename, overwrite=False):
+        if not self._init:
+            mode = 'w' if overwrite else 'a'
+            self._output_file = open(filename, mode)
+            self._init = True
+
+    def write(self, message):
+        if self._init:
+            self._output_file.write(message)
+
+    def close(self):
+        if self._init:
+            self._output_file.close()
+            self._init = False
 
 ##############################################################################################################
 
@@ -259,6 +278,33 @@ class Game:
 
     def __post_init__(self):
         """Automatically called after class init to set up the default board state."""
+        is_ai = self.options.alpha_beta
+        timeout = self.options.max_time
+        max_turns = self.options.max_turns
+        game_type = self.options.game_type
+
+        filename = f'gameTrace-{is_ai}-{timeout}-{max_turns}.txt'
+
+        player_one = "Human" if game_type == GameType.AttackerVsDefender else "AI"
+        player_two = "AI" if game_type != GameType.AttackerVsDefender else "Human"
+
+        table_data = [
+            ["Timeout    ", f"{timeout} seconds"],
+            ["Max Turns  ", f"{max_turns}"],
+            ["Alpha Beta ", f"{'on' if is_ai else 'off'}"],
+            ["Play Mode  ", f"Player 1: {player_one}, Player 2: {player_two}"],
+        ]
+
+        if game_type != GameType.AttackerVsDefender:
+            table_data.append(["Heuristic", "e0 e1 e2"])
+
+        table_str = "\n".join(["\t".join(row) for row in table_data])
+
+        logger = TraceLogger()  # Initialize the logger
+        logger.init(filename, overwrite=True)  # Initialize with the filename
+        logger.write(table_str)  # Write the table_str to the file
+        logger.write("")  # Add an empty line
+
         dim = self.options.dim
         self.board = [[None for _ in range(dim)] for _ in range(dim)]
         md = dim - 1
