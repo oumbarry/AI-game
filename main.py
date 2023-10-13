@@ -374,8 +374,13 @@ class Game:
         unit = self.get(coords.dst)
         return (unit is None)
 
-    def perform_move(self, coords: CoordPair) -> Tuple[bool, str]:
-        """Validate and perform a move expressed as a CoordPair. TODO: WRITE MISSING CODE!!!"""
+        def perform_move(self, coords: CoordPair) -> Tuple[bool, str]:
+        """Validate and perform a move expressed as a CoordPair."""
+
+        # Beginning of writing output of game to the file
+        logger = TraceLogger()
+        logger.init(f'gameTrace-{self.options.alpha_beta}-{self.options.max_time}-{self.options.max_turns}.txt')
+
         if isinstance(coords.dst, tuple):
             coords.dst = Coord(coords.dst[0], coords.dst[1])
 
@@ -385,6 +390,7 @@ class Game:
         if src_unit is None:  # Added check to ensure source unit exists
             return False, "Invalid move: Source unit does not exist."
 
+        # Self destruct
         if src_unit == dst_unit:
             if src_unit.player != self.next_player:
                 return False, "Invalid move: Cannot self-destruct opponent's unit."
@@ -397,13 +403,16 @@ class Game:
                         self.set(adj_coord, None)
 
             src_unit.health = 0
+
             # Check if units were defeated in the process
             if not src_unit.is_alive():
                 self.remove_dead(coords.src)
             if not dst_unit.is_alive():
                 self.remove_dead(coords.dst)
+            logger.write(f"{self.next_player.name}'s {src_unit.type.name} self-destructing at: {coords.src}!\n")
             return True, "Self-destruct successful"
 
+        # Attack
         if dst_unit is not None and dst_unit.player != src_unit.player:
             # Check if the source unit can attack the destination unit
             if (abs(coords.dst.row - coords.src.row) == 1 and coords.dst.col == coords.src.col) or \
@@ -421,13 +430,17 @@ class Game:
                     self.remove_dead(coords.dst)
 
                 if src_unit.is_alive():
+                    logger.write(
+                        f"{self.next_player.name}'s {src_unit.type.name} at {coords.src} attacking enemy's {dst_unit.type.name} at {coords.dst}.\n")
                     return True, "attack successful"
                 else:
+                    logger.write(
+                        f"{self.next_player.name}'s {src_unit.type.name} at {coords.src} attacking enemy's {dst_unit.type.name} at {coords.dst}. Source unit defeated!\n")
                     return True, "attack successful, source unit defeated"
             else:
                 return False, "Invalid move: Cannot move onto the same position as the target unit after attacking"
 
-
+        # Repair
         if src_unit is not None and dst_unit is not None:
             # The source and destination units exist, proceed with the move logic
             if coords.dst in list(coords.src.iter_adjacent()):
@@ -436,6 +449,8 @@ class Game:
                         amount = src_unit.repair_amount(dst_unit)
                         if amount > 0:
                             dst_unit.health += amount
+                            logger.write(
+                                f"{self.next_player.name}'s {src_unit.type.name} at {coords.src} repairing friendly {dst_unit.type.name} at {coords.dst}.\n")
                             return True, f"Repair successful. {dst_unit.type} is healed by {amount} health."
                     else:
                         return False, "Invalid move: The unit is already at full health."
@@ -457,6 +472,7 @@ class Game:
             if src_unit.is_alive():
                 self.set(coords.dst, src_unit)
                 self.set(coords.src, None)
+                logger.write(f"{self.next_player.name}'s move: {coords.src} to {coords.dst}.\n")
                 return True, "Move successful"
             else:
                 return False, "Invalid move: Source unit is defeated."
