@@ -69,6 +69,7 @@ class Unit:
     player: Player = Player.Attacker
     type: UnitType = UnitType.Program
     health: int = 9
+    in_combat: bool = False
     # class variable: damage table for units (based on the unit type constants in order)
     damage_table: ClassVar[list[list[int]]] = [
         [3, 3, 3, 3, 1],  # AI
