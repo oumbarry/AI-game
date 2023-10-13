@@ -365,14 +365,58 @@ class Game:
             self.remove_dead(coord)
 
     def is_valid_move(self, coords: CoordPair) -> bool:
-        """Validate a move expressed as a CoordPair. TODO: WRITE MISSING CODE!!!"""
+        """Validate a move expressed as a CoordPair."""
         if not self.is_valid_coord(coords.src) or not self.is_valid_coord(coords.dst):
             return False
-        unit = self.get(coords.src)
-        if unit is None or unit.player != self.next_player:
+
+        src_unit = self.get(coords.src)
+        dst_unit = self.get(coords.dst)
+
+        # Checks if source coordinate is not empty and if the source coordinate unit is the current player
+        if src_unit is None or src_unit.player != self.next_player:
             return False
-        unit = self.get(coords.dst)
-        return (unit is None)
+
+        # Checks if source unit is in combat and if so that the destination unit is still alive
+        # and if both src and dst are not the same player
+        if src_unit.in_combat:
+            return dst_unit is not None and src_unit.player != dst_unit.player
+
+        # Determine the allowed move directions based on the unit type and player
+        allowed_directions = set()
+
+        if src_unit.player == Player.Attacker:
+            if src_unit.type in [UnitType.Firewall, UnitType.AI, UnitType.Program]:
+                # Attacker's Firewall, AI, and Program units can move up or left
+                allowed_directions.add((-1, 0))  # Up
+                allowed_directions.add((0, -1))  # Left
+            elif src_unit.type == UnitType.Virus:
+                # Attacker's Virus units can move in any direction
+                allowed_directions.add((-1, 0))  # Up
+                allowed_directions.add((0, -1))  # Left
+                allowed_directions.add((0, 1))  # Right
+                allowed_directions.add((1, 0))  # Down
+        else:  # Player.Defender
+            if src_unit.type in [UnitType.Firewall, UnitType.AI, UnitType.Program]:
+                # Defender's Firewall, AI, and Program units can move down or right
+                allowed_directions.add((1, 0))  # Down
+                allowed_directions.add((0, 1))  # Right
+            elif src_unit.type == UnitType.Tech:
+                # Defender's Tech units can move in any direction
+                allowed_directions.add((-1, 0))  # Up
+                allowed_directions.add((0, -1))  # Left
+                allowed_directions.add((0, 1))  # Right
+                allowed_directions.add((1, 0))  # Down
+
+        # Calculate the direction vector for the move
+        move_direction = (coords.dst.row - coords.src.row, coords.dst.col - coords.src.col)
+
+        # Check if the move direction is allowed
+        if move_direction not in allowed_directions:
+            return False
+
+        # Check if the target cell is empty or contains an adversarial unit
+        return dst_unit is None or src_unit.player != dst_unit.player
+
 
         def perform_move(self, coords: CoordPair) -> Tuple[bool, str]:
         """Validate and perform a move expressed as a CoordPair."""
@@ -683,6 +727,33 @@ class Game:
 
 ##############################################################################################################
 
+def get_user_input():
+    # Get user input for max turns (positive integer)
+    while True:
+        max_turns_str = input("Enter the maximum number of turns (positive integer, e.g., 1000): ")
+        if max_turns_str.isdigit():
+            max_turns = int(max_turns_str)
+            if max_turns > 0:
+                break
+        print("Please enter a positive integer for maximum turns.")
+
+    # Get user input for max seconds (positive float)
+    while True:
+        max_seconds_str = input("Enter the maximum time in seconds (positive float, e.g., 60.0): ")
+        try:
+            max_seconds = float(max_seconds_str)
+            if max_seconds > 0:
+                break
+        except ValueError:
+            pass
+        print("Please enter a positive float for maximum seconds.")
+
+    # Get user input for alpha-beta pruning (True/False)
+    alpha_beta_str = input("Enable alpha-beta pruning (True/False): ").lower()
+    alpha_beta = alpha_beta_str == 'true'
+
+    return max_turns, max_seconds, alpha_beta
+
 def main():
     # parse command line arguments
     parser = argparse.ArgumentParser(
@@ -704,9 +775,17 @@ def main():
     else:
         game_type = GameType.CompVsComp
 
-    # set up game options
-    options = Options(game_type=game_type)
+    # Get user input for max turns, max seconds, and alpha-beta pruning
+    max_turns, max_seconds, alpha_beta = get_user_input()
 
+    # Set up game options
+    options = Options(
+        game_type=game_type,
+        max_turns=max_turns,
+        max_time=max_seconds,
+        alpha_beta=alpha_beta
+    )
+    
     # override class defaults via command line options
     if args.max_depth is not None:
         options.max_depth = args.max_depth
