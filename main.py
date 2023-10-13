@@ -418,7 +418,7 @@ class Game:
         return dst_unit is None or src_unit.player != dst_unit.player
 
 
-        def perform_move(self, coords: CoordPair) -> Tuple[bool, str]:
+    def perform_move(self, coords: CoordPair) -> Tuple[bool, str]:
         """Validate and perform a move expressed as a CoordPair."""
 
         # Beginning of writing output of game to the file
@@ -521,8 +521,9 @@ class Game:
             else:
                 return False, "Invalid move: Source unit is defeated."
 
-        return False, "Invalid move"
+        return False, "Invalid move"    
 
+    
     def next_turn(self):
         """Transitions game to the next turn."""
         self.next_player = self.next_player.next()
