@@ -9,6 +9,7 @@ from typing import Tuple, TypeVar, Type, Iterable, ClassVar
 import random
 import requests
 
+
 # maximum and minimum values for our heuristic scores (usually represents an end of game condition)
 MAX_HEURISTIC_SCORE = 2000000000
 MIN_HEURISTIC_SCORE = -2000000000
@@ -61,6 +62,22 @@ class TraceLogger:
         if self._init:
             self._output_file.close()
             self._init = False
+
+##############################################################################################################
+
+@dataclass(slots=True)
+class Options:
+    """Representation of the game options."""
+    dim: int = 5
+    max_depth: int | None = 4
+    min_depth: int | None = 2
+    max_time: float | None = 10.0
+    game_type: GameType = GameType.AttackerVsDefender
+    alpha_beta: bool = False
+    max_turns: int | None = 25
+    randomize_moves: bool = True
+    broker: str | None = None
+
 
 ##############################################################################################################
 
@@ -239,23 +256,8 @@ class CoordPair:
             return None
 
 
-##############################################################################################################
+#############################################################################################################
 
-@dataclass(slots=True)
-class Options:
-    """Representation of the game options."""
-    dim: int = 5
-    max_depth: int | None = 4
-    min_depth: int | None = 2
-    max_time: float | None = 5.0
-    game_type: GameType = GameType.AttackerVsDefender
-    alpha_beta: bool = True
-    max_turns: int | None = 100
-    randomize_moves: bool = True
-    broker: str | None = None
-
-
-##############################################################################################################
 
 @dataclass(slots=True)
 class Stats:
@@ -305,6 +307,10 @@ class Game:
         logger.init(filename, overwrite=True)  # Initialize with the filename
         logger.write(table_str)  # Write the table_str to the file
         logger.write("")  # Add an empty line
+
+
+
+
 
         dim = self.options.dim
         self.board = [[None for _ in range(dim)] for _ in range(dim)]
@@ -418,11 +424,8 @@ class Game:
         # Check if the target cell is empty or contains an adversarial unit
         return dst_unit is None or src_unit.player != dst_unit.player
 
-
     def perform_move(self, coords: CoordPair) -> Tuple[bool, str]:
         """Validate and perform a move expressed as a CoordPair."""
-
-        # Beginning of writing output of game to the file
         logger = TraceLogger()
         logger.init(f'gameTrace-{self.options.alpha_beta}-{self.options.max_time}-{self.options.max_turns}.txt')
 
@@ -435,7 +438,7 @@ class Game:
         if src_unit is None:  # Added check to ensure source unit exists
             return False, "Invalid move: Source unit does not exist."
 
-        # Self destruct
+        # Self-Destruct
         if src_unit == dst_unit:
             if src_unit.player != self.next_player:
                 return False, "Invalid move: Cannot self-destruct opponent's unit."
@@ -448,7 +451,6 @@ class Game:
                         self.set(adj_coord, None)
 
             src_unit.health = 0
-
             # Check if units were defeated in the process
             if not src_unit.is_alive():
                 self.remove_dead(coords.src)
@@ -512,7 +514,6 @@ class Game:
                         adj_unit.in_combat = True
                         break
 
-
             # Check if the source unit is still alive before moving
             if src_unit.is_alive():
                 self.set(coords.dst, src_unit)
@@ -522,9 +523,8 @@ class Game:
             else:
                 return False, "Invalid move: Source unit is defeated."
 
-        return False, "Invalid move"    
+        return False, "Invalid move"
 
-    
     def next_turn(self):
         """Transitions game to the next turn."""
         self.next_player = self.next_player.next()
@@ -555,7 +555,12 @@ class Game:
                 else:
                     output += f"{str(unit):^3} "
             output += "\n"
+
+        logger = TraceLogger()
+        logger.init(f'gameTrace-{self.options.alpha_beta}-{self.options.max_time}-{self.options.max_turns}.txt')
+        logger.write(output)
         return output
+
 
     def __str__(self) -> str:
         """Default string representation of a game."""
@@ -593,16 +598,14 @@ class Game:
                         break
                 sleep(0.1)
         else:
-            while True:
-                mv = self.read_move()
-                (success, result) = self.perform_move(mv)
-                if success:
-                    print(f"Player {self.next_player.name}: ", end='')
-                    print(result)
-                    self.next_turn()
-                    break
-                else:
-                    print("The move is not valid! Try again.")
+            mv = self.read_move()
+            (success, result) = self.perform_move(mv)
+            if success:
+                print(f"Player {self.next_player.name}: ", end='')
+                print(result)
+                self.next_turn()
+            else:
+                print("The move is not valid! Try again.")
 
     def computer_turn(self) -> CoordPair | None:
         """Computer plays a move."""
@@ -630,25 +633,19 @@ class Game:
         """Check if the game is over and returns winner"""
         if self.options.max_turns is not None and self.turns_played >= self.options.max_turns:
             return Player.Defender
-        elif self._attacker_has_ai:
+        if self._attacker_has_ai:
             if self._defender_has_ai:
                 return None
             else:
                 return Player.Attacker
-        elif self._defender_has_ai:
-            return Player.Defender
+        return Player.Defender
 
     def move_candidates(self) -> Iterable[CoordPair]:
-        """Generate valid move candidates for the next player."""
-        move = CoordPair()
         for (src, _) in self.player_units(self.next_player):
-            move.src = src
             for dst in src.iter_adjacent():
-                move.dst = dst
+                move = CoordPair(src, dst)
                 if self.is_valid_move(move):
-                    yield move.clone()
-            move.dst = src
-            yield move.clone()
+                    yield move
 
     def random_move(self) -> Tuple[int, CoordPair | None, float]:
         """Returns a random move."""
@@ -659,10 +656,124 @@ class Game:
         else:
             return (0, None, 0)
 
+    def count_units_by_type(self, player, unit_type):
+        count = 0
+        for row in self.board:
+            for unit in row:
+                if unit and unit.player == player and unit.type == unit_type:
+                    count += 1
+        return count
+
+    def evaluate_state(self) -> int:
+        unit_types = [UnitType.Virus, UnitType.Tech, UnitType.Firewall, UnitType.Program, UnitType.AI]
+        player_counts = {player: {unit_type: self.count_units_by_type(player, unit_type) for unit_type in unit_types}
+                         for player in [Player.Attacker, Player.Defender]}
+
+        weights = {
+            UnitType.Virus: 3,
+            UnitType.Tech: 3,
+            UnitType.Firewall: 3,
+            UnitType.Program: 3,
+            UnitType.AI: 9999
+        }
+        return sum(
+            weights[unit_type] * (player_counts[Player.Attacker][unit_type] - player_counts[Player.Defender][unit_type])
+            for unit_type in unit_types)
+    def evaluate_state1(self) -> int:
+        unit_types = [UnitType.Virus, UnitType.Tech, UnitType.Firewall, UnitType.Program, UnitType.AI]
+        player_counts = {player: {unit_type: self.count_units_by_type(player, unit_type) for unit_type in unit_types}
+                         for player in [Player.Attacker, Player.Defender]}
+
+        weights = {
+            UnitType.Virus: 6,
+            UnitType.Tech: 3,
+            UnitType.Firewall: 2,
+            UnitType.Program: 1,
+            UnitType.AI: 9999
+        }
+        print(player_counts)
+        return sum(
+            weights[unit_type] * (player_counts[Player.Attacker][unit_type] - player_counts[Player.Defender][unit_type])
+            for unit_type in unit_types)
+    def evaluate_state2(self) -> int:
+        unit_types = [UnitType.Virus, UnitType.Tech, UnitType.Firewall, UnitType.Program, UnitType.AI]
+        player_counts = {player: {unit_type: self.count_units_by_type(player, unit_type) for unit_type in unit_types}
+                         for player in [Player.Attacker, Player.Defender]}
+
+        weights = {
+            UnitType.Virus: 6,
+            UnitType.Tech: 4,
+            UnitType.Firewall: 1,
+            UnitType.Program: 1,
+            UnitType.AI: 12000
+        }
+        print(player_counts)
+        return sum(
+            weights[unit_type] * (player_counts[Player.Attacker][unit_type] - player_counts[Player.Defender][unit_type])
+            for unit_type in unit_types)
+
+
+    def alphabeta(self, depth: int, alpha: int, beta: int, maximizing_player: bool) -> Tuple[
+        int, CoordPair | None, int]:
+        if depth == 0 or self.is_finished():
+            # Base case: Return the evaluation score, None for move, and depth of 0.
+            return int(self.evaluate_state()), None, 0
+
+        if maximizing_player:
+            best_value = float('-inf')
+            best_move = None
+            total_depth = 0  # Track total depth for average depth calculation
+
+            move_candidates = list(self.move_candidates())  # Convert generator to list
+            for move in move_candidates:
+                new_game = self.clone()
+                success, _ = new_game.perform_move(move)
+                if not success:
+                    continue
+                value, _, child_depth = new_game.alphabeta(depth - 1, alpha, beta, False)
+                if value > best_value:
+                    best_value = value
+                    best_move = move
+                total_depth += 1 + child_depth  # Depth of current node plus child depth
+
+                alpha = max(alpha, best_value)
+                if beta <= alpha:
+                    break  # Beta cut-off
+
+            avg_depth = total_depth / len(move_candidates)  # Calculate average depth
+            return int(best_value), best_move, int(avg_depth)
+        else:
+            best_value = float('inf')
+            best_move = None
+            total_depth = 0  # Track total depth for average depth calculation
+
+            move_candidates = list(self.move_candidates())  # Convert generator to list
+            for move in move_candidates:
+                new_game = self.clone()
+                success, _ = new_game.perform_move(move)
+                if not success:
+                    continue
+                value, _, child_depth = new_game.alphabeta(depth - 1, alpha, beta, True)
+                if value < best_value:
+                    best_value = value
+                    best_move = move
+                total_depth += 1 + child_depth  # Depth of current node plus child depth
+
+                beta = min(beta, best_value)
+                if beta <= alpha:
+                    break  # Alpha cut-off
+
+            avg_depth = total_depth / len(move_candidates)  # Calculate average depth
+            return int(best_value), best_move, int(avg_depth)
+
     def suggest_move(self) -> CoordPair | None:
-        """Suggest the next move using minimax alpha beta. TODO: REPLACE RANDOM_MOVE WITH PROPER GAME LOGIC!!!"""
+        """Suggest the next move using the Minimax algorithm with e0 heuristic."""
         start_time = datetime.now()
-        (score, move, avg_depth) = self.random_move()
+        if self.options.alpha_beta:
+            (score, move, avg_depth) = self.alphabeta(self.options.max_depth, float('-inf'), float('inf'), True)
+        else:
+            (score, move, avg_depth) = self.minimax_move(self.options.max_depth, True)
+
         elapsed_seconds = (datetime.now() - start_time).total_seconds()
         self.stats.total_seconds += elapsed_seconds
         print(f"Heuristic score: {score}")
@@ -673,7 +784,7 @@ class Game:
         print()
         total_evals = sum(self.stats.evaluations_per_depth.values())
         if self.stats.total_seconds > 0:
-            print(f"Eval perf.: {total_evals / self.stats.total_seconds / 1000:0.1f}k/s")
+            print(f"Eval performance: {total_evals / self.stats.total_seconds / 1000:0.1f}k/s")
         print(f"Elapsed time: {elapsed_seconds:0.1f}s")
         return move
 
@@ -729,32 +840,8 @@ class Game:
 
 ##############################################################################################################
 
-def get_user_input():
-    # Get user input for max turns (positive integer)
-    while True:
-        max_turns_str = input("Enter the maximum number of turns (positive integer, e.g., 1000): ")
-        if max_turns_str.isdigit():
-            max_turns = int(max_turns_str)
-            if max_turns > 0:
-                break
-        print("Please enter a positive integer for maximum turns.")
 
-    # Get user input for max seconds (positive float)
-    while True:
-        max_seconds_str = input("Enter the maximum time in seconds (positive float, e.g., 60.0): ")
-        try:
-            max_seconds = float(max_seconds_str)
-            if max_seconds > 0:
-                break
-        except ValueError:
-            pass
-        print("Please enter a positive float for maximum seconds.")
 
-    # Get user input for alpha-beta pruning (True/False)
-    alpha_beta_str = input("Enable alpha-beta pruning (True/False): ").lower()
-    alpha_beta = alpha_beta_str == 'true'
-
-    return max_turns, max_seconds, alpha_beta
 
 def main():
     # parse command line arguments
@@ -777,17 +864,9 @@ def main():
     else:
         game_type = GameType.CompVsComp
 
-    # Get user input for max turns, max seconds, and alpha-beta pruning
-    max_turns, max_seconds, alpha_beta = get_user_input()
+    # set up game options
+    options = Options(game_type=game_type)
 
-    # Set up game options
-    options = Options(
-        game_type=game_type,
-        max_turns=max_turns,
-        max_time=max_seconds,
-        alpha_beta=alpha_beta
-    )
-    
     # override class defaults via command line options
     if args.max_depth is not None:
         options.max_depth = args.max_depth
@@ -798,14 +877,21 @@ def main():
 
     # create a new game
     game = Game(options=options)
-
+    logger = TraceLogger()
+    logger.init('gameTrace-False-5.0-100.txt')
+    logger.write("output312321")
     # the main game loop
     while True:
         print()
         print(game)
         winner = game.has_winner()
+
         if winner is not None:
             print(f"{winner.name} wins!")
+            logger = TraceLogger()
+            logger.init(f'gameTrace-{options.alpha_beta}-{options.max_time}-{options.max_turns}.txt')
+            logger.write(f"{winner.name} wins in {game.turns_played} turns!")
+            logger.close()
             break
         if game.options.game_type == GameType.AttackerVsDefender:
             game.human_turn()
