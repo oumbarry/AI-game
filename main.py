@@ -77,6 +77,7 @@ class Options:
     max_turns: int | None = 25
     randomize_moves: bool = True
     broker: str | None = None
+    ai_difficulty: int | None=0
 
 
 ##############################################################################################################
@@ -691,7 +692,6 @@ class Game:
             UnitType.Program: 1,
             UnitType.AI: 9999
         }
-        print(player_counts)
         return sum(
             weights[unit_type] * (player_counts[Player.Attacker][unit_type] - player_counts[Player.Defender][unit_type])
             for unit_type in unit_types)
@@ -707,10 +707,59 @@ class Game:
             UnitType.Program: 1,
             UnitType.AI: 12000
         }
-        print(player_counts)
         return sum(
             weights[unit_type] * (player_counts[Player.Attacker][unit_type] - player_counts[Player.Defender][unit_type])
             for unit_type in unit_types)
+
+    def minimax_move(self, depth: int, maximizing_player: bool) -> Tuple[int, CoordPair | None, int]:
+        if depth == 0 or self.is_finished():
+            # Base case: Return the evaluation score, None for move, and depth of 0.
+            if self.options.ai_difficulty == 0:
+                return int(self.evaluate_state()), None, 0
+            elif self.options.ai_difficulty == 1:
+                return int(self.evaluate_state1()), None, 0
+            elif self.options.ai_difficulty == 2:
+                return int(self.evaluate_state2()), None, 0
+
+        if maximizing_player:
+            best_value = float('-inf')
+            best_move = None
+            total_depth = 0  # Track total depth for average depth calculation
+
+            move_candidates = list(self.move_candidates())  # Convert generator to list
+            for move in move_candidates:
+                new_game = self.clone()
+                success, _ = new_game.perform_move(move)
+                if not success:
+                    continue
+                value, _, child_depth = new_game.minimax_move(depth - 1, False)
+                if value > best_value:
+                    best_value = value
+                    best_move = move
+                total_depth += 1 + child_depth  # Depth of current node plus child depth
+
+            avg_depth = total_depth / len(move_candidates)  # Calculate average depth
+            return int(best_value), best_move, int(avg_depth)
+        else:
+            best_value = float('inf')
+            best_move = None
+            total_depth = 0  # Track total depth for average depth calculation
+
+            move_candidates = list(self.move_candidates())  # Convert generator to list
+            for move in move_candidates:
+                new_game = self.clone()
+                success, _ = new_game.perform_move(move)
+                if not success:
+                    continue
+                value, _, child_depth = new_game.minimax_move(depth - 1, True)
+                if value < best_value:
+                    best_value = value
+                    best_move = move
+                total_depth += 1 + child_depth  # Depth of current node plus child depth
+
+            avg_depth = total_depth / len(move_candidates)  # Calculate average depth
+            return int(best_value), best_move, int(avg_depth)
+
 
 
     def alphabeta(self, depth: int, alpha: int, beta: int, maximizing_player: bool) -> Tuple[
