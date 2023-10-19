@@ -889,6 +889,81 @@ class Game:
 
 ##############################################################################################################
 
+def get_ai_difficulty():
+    while True:
+        print("Choose AI difficulty:")
+        print("0. Easy")
+        print("1. Medium")
+        print("2. Hard")
+        ai_difficulty_str = input("Enter the number corresponding to AI difficulty: ")
+        if ai_difficulty_str.isdigit():
+            ai_difficulty = int(ai_difficulty_str)
+            if 0 == ai_difficulty:
+                return ai_difficulty
+
+            elif 1 == ai_difficulty:
+                return ai_difficulty
+
+            elif 2 == ai_difficulty:
+                return ai_difficulty
+
+        print("Invalid number!!")
+
+
+def get_user_input():
+    # Get user input for game type (0-3 for different combinations)
+    while True:
+        print("Choose a game type:")
+        print("0. Attacker vs Defender")
+        print("1. Attacker vs Computer")
+        print("2. Computer vs Defender")
+        print("3. Computer vs Computer")
+        game_type_str = input("Enter the number corresponding to your choice: ")
+
+        if game_type_str.isdigit():
+            game_type = int(game_type_str)
+            if 0 == game_type:
+                game_type = GameType.AttackerVsDefender
+                break
+            if 1 == game_type:
+                game_type = GameType.AttackerVsComp
+                ai_difficulty = get_ai_difficulty()
+                break
+            if 2 == game_type:
+                game_type = GameType.CompVsDefender
+                ai_difficulty = get_ai_difficulty()
+                break
+            if 3 == game_type:
+                game_type = GameType.CompVsComp
+                ai_difficulty =get_ai_difficulty()
+                break
+        print("Please enter a valid game type (0, 1, 2, or 3).")
+
+    # Get user input for max turns (positive integer)
+    while True:
+        max_turns_str = input("Enter the maximum number of turns (positive integer, e.g., 1000): ")
+        if max_turns_str.isdigit():
+            max_turns = int(max_turns_str)
+            if max_turns > 0:
+                break
+        print("Please enter a positive integer for maximum turns.")
+
+    # Get user input for max seconds (positive float)
+    while True:
+        max_seconds_str = input("Enter the maximum time in seconds (positive float, e.g., 60.0): ")
+        try:
+            max_seconds = float(max_seconds_str)
+            if max_seconds > 0:
+                break
+        except ValueError:
+            pass
+        print("Please enter a positive float for maximum seconds.")
+
+    # Get user input for alpha-beta pruning (True/False)
+    alpha_beta_str = input("Enable alpha-beta pruning (True/False): ").lower()
+    alpha_beta = alpha_beta_str == 'true'
+
+    return game_type, max_turns, max_seconds, alpha_beta, ai_difficulty
 
 
 
@@ -913,8 +988,18 @@ def main():
     else:
         game_type = GameType.CompVsComp
 
-    # set up game options
-    options = Options(game_type=game_type)
+        # Get user input for max turns, max seconds, and alpha-beta pruning
+    game_type, max_turns, max_seconds, alpha_beta, ai_difficulty = get_user_input()
+
+
+    # Set up game options
+    options = Options(
+        game_type=game_type,
+        max_turns=max_turns,
+        max_time=max_seconds,
+        alpha_beta=alpha_beta,
+        ai_difficulty=ai_difficulty
+    )
 
     # override class defaults via command line options
     if args.max_depth is not None:
