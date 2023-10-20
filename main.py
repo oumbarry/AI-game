@@ -793,7 +793,7 @@ class Game:
             elif self.options.heuristic_choice == 1:
                 return int(self.evaluate_state1()), None, 0
             elif self.options.heuristic_choice == 2:
-                return int(self.evaluate_state2()), None, 0
+                return int(self.evaluate_state_advanced()), None, 0
 
         move_candidates = list(self.move_candidates())
         best_move = move_candidates[0]
