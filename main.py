@@ -946,6 +946,7 @@ def get_user_input():
             if 0 == game_type:
                 game_type = GameType.AttackerVsDefender
                 heuristic_choice = None
+                alpha_beta = None
                 break
             if 1 == game_type:
                 game_type = GameType.AttackerVsComp
@@ -982,8 +983,9 @@ def get_user_input():
         print("Please enter a positive float for maximum seconds.")
 
     # Get user input for alpha-beta pruning (True/False)
-    alpha_beta_str = input("Enable alpha-beta pruning (True/False): ").lower()
-    alpha_beta = alpha_beta_str == 'true'
+    if int(game_type_str) >=1:
+        alpha_beta_str = input("Enable alpha-beta pruning (True/False): ").lower()
+        alpha_beta = alpha_beta_str == 'true'
 
     return game_type, max_turns, max_seconds, alpha_beta, heuristic_choice
 
