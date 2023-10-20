@@ -715,23 +715,22 @@ class Game:
         if depth == 0 or self.is_finished():
             # Base case: Return the evaluation score, None for move, and depth of 0.
             if self.options.ai_difficulty == 0:
-                return int(self.evaluate_state()), None, 0
+                return int(self.evaluate_state()), None
             elif self.options.ai_difficulty == 1:
-                return int(self.evaluate_state1()), None, 0
+                return int(self.evaluate_state1()), None
             elif self.options.ai_difficulty == 2:
-                return int(self.evaluate_state2()), None, 0
+                return int(self.evaluate_state2()), None
+
+        move_candidates = list(self.move_candidates())
+        best_move = move_candidates[0]
 
         if maximizing_player:
             best_value = float('-inf')
-            best_move = None
             total_depth = 0  # Track total depth for average depth calculation
 
-            move_candidates = list(self.move_candidates())  # Convert generator to list
             for move in move_candidates:
                 new_game = self.clone()
-                success, _ = new_game.perform_move(move)
-                if not success:
-                    continue
+                new_game.perform_move(move)
                 value, _, child_depth = new_game.minimax_move(depth - 1, False)
                 if value > best_value:
                     best_value = value
@@ -741,44 +740,42 @@ class Game:
             avg_depth = total_depth / len(move_candidates)  # Calculate average depth
             return int(best_value), best_move, int(avg_depth)
         else:
-            best_value = float('inf')
-            best_move = None
+            worst_value = float('inf')
             total_depth = 0  # Track total depth for average depth calculation
 
-            move_candidates = list(self.move_candidates())  # Convert generator to list
             for move in move_candidates:
                 new_game = self.clone()
-                success, _ = new_game.perform_move(move)
-                if not success:
-                    continue
+                new_game.perform_move(move)
                 value, _, child_depth = new_game.minimax_move(depth - 1, True)
-                if value < best_value:
-                    best_value = value
+                if value < worst_value:
+                    worst_value = value
                     best_move = move
                 total_depth += 1 + child_depth  # Depth of current node plus child depth
 
             avg_depth = total_depth / len(move_candidates)  # Calculate average depth
-            return int(best_value), best_move, int(avg_depth)
-
-
+            return int(worst_value), best_move, int(avg_depth)
 
     def alphabeta(self, depth: int, alpha: int, beta: int, maximizing_player: bool) -> Tuple[
         int, CoordPair | None, int]:
         if depth == 0 or self.is_finished():
             # Base case: Return the evaluation score, None for move, and depth of 0.
-            return int(self.evaluate_state()), None, 0
+            if self.options.ai_difficulty == 0:
+                return int(self.evaluate_state()), None, 0
+            elif self.options.ai_difficulty == 1:
+                return int(self.evaluate_state1()), None, 0
+            elif self.options.ai_difficulty == 2:
+                return int(self.evaluate_state2()), None, 0
+
+        move_candidates = list(self.move_candidates())
+        best_move = move_candidates[0]
+        total_depth = 0  # Track total depth for average depth calculation
 
         if maximizing_player:
             best_value = float('-inf')
-            best_move = None
-            total_depth = 0  # Track total depth for average depth calculation
 
-            move_candidates = list(self.move_candidates())  # Convert generator to list
             for move in move_candidates:
                 new_game = self.clone()
-                success, _ = new_game.perform_move(move)
-                if not success:
-                    continue
+                new_game.perform_move(move)
                 value, _, child_depth = new_game.alphabeta(depth - 1, alpha, beta, False)
                 if value > best_value:
                     best_value = value
@@ -787,41 +784,36 @@ class Game:
 
                 alpha = max(alpha, best_value)
                 if beta <= alpha:
-                    break  # Beta cut-off
+                    break
 
             avg_depth = total_depth / len(move_candidates)  # Calculate average depth
             return int(best_value), best_move, int(avg_depth)
         else:
-            best_value = float('inf')
-            best_move = None
-            total_depth = 0  # Track total depth for average depth calculation
+            worst_value = float('inf')
 
-            move_candidates = list(self.move_candidates())  # Convert generator to list
             for move in move_candidates:
                 new_game = self.clone()
-                success, _ = new_game.perform_move(move)
-                if not success:
-                    continue
+                new_game.perform_move(move)
                 value, _, child_depth = new_game.alphabeta(depth - 1, alpha, beta, True)
-                if value < best_value:
-                    best_value = value
+                if value < worst_value:
+                    worst_value = value
                     best_move = move
                 total_depth += 1 + child_depth  # Depth of current node plus child depth
 
-                beta = min(beta, best_value)
+                beta = min(beta, worst_value)
                 if beta <= alpha:
-                    break  # Alpha cut-off
+                    break
 
             avg_depth = total_depth / len(move_candidates)  # Calculate average depth
-            return int(best_value), best_move, int(avg_depth)
+            return int(worst_value), best_move, int(avg_depth)
 
     def suggest_move(self) -> CoordPair | None:
         """Suggest the next move using the Minimax algorithm with e0 heuristic."""
         start_time = datetime.now()
         if self.options.alpha_beta:
-            (score, move, avg_depth) = self.alphabeta(self.options.max_depth, float('-inf'), float('inf'), True)
+            (score, move, avg_depth) = self.alphabeta(self.options.max_depth, float('-inf'), float('inf'), self.next_player == Player.Attacker)
         else:
-            (score, move, avg_depth) = self.minimax_move(self.options.max_depth, True)
+            (score, move, avg_depth) = self.minimax_move(self.options.max_depth, self.next_player == Player.Attacker)
 
         elapsed_seconds = (datetime.now() - start_time).total_seconds()
         self.stats.total_seconds += elapsed_seconds
@@ -889,25 +881,25 @@ class Game:
 
 ##############################################################################################################
 
-def get_ai_difficulty():
+def get_heuristic_choice():
     while True:
         print("Choose AI difficulty:")
-        print("0. Easy")
-        print("1. Medium")
-        print("2. Hard")
-        ai_difficulty_str = input("Enter the number corresponding to AI difficulty: ")
-        if ai_difficulty_str.isdigit():
-            ai_difficulty = int(ai_difficulty_str)
-            if 0 == ai_difficulty:
-                return ai_difficulty
+        print("0. e0")
+        print("1. e1")
+        print("2. e2")
+        heuristic_choice_str = input("Enter the number corresponding to AI difficulty: ")
+        if heuristic_choice_str.isdigit():
+            heuristic_choice = int(heuristic_choice_str)
+            if 0 == heuristic_choice:
+                return heuristic_choice
 
-            elif 1 == ai_difficulty:
-                return ai_difficulty
+            elif 1 == heuristic_choice:
+                return heuristic_choice
 
-            elif 2 == ai_difficulty:
-                return ai_difficulty
+            elif 2 == heuristic_choice:
+                return heuristic_choice
 
-        print("Invalid number!!")
+        print("Please enter a valid heuristic choice (0, 1, or 2).")
 
 
 def get_user_input():
@@ -927,15 +919,15 @@ def get_user_input():
                 break
             if 1 == game_type:
                 game_type = GameType.AttackerVsComp
-                ai_difficulty = get_ai_difficulty()
+                heuristic_choice = get_heuristic_choice()
                 break
             if 2 == game_type:
                 game_type = GameType.CompVsDefender
-                ai_difficulty = get_ai_difficulty()
+                heuristic_choice = get_heuristic_choice()
                 break
             if 3 == game_type:
                 game_type = GameType.CompVsComp
-                ai_difficulty =get_ai_difficulty()
+                heuristic_choice =get_heuristic_choice()
                 break
         print("Please enter a valid game type (0, 1, 2, or 3).")
 
@@ -963,7 +955,7 @@ def get_user_input():
     alpha_beta_str = input("Enable alpha-beta pruning (True/False): ").lower()
     alpha_beta = alpha_beta_str == 'true'
 
-    return game_type, max_turns, max_seconds, alpha_beta, ai_difficulty
+    return game_type, max_turns, max_seconds, alpha_beta, heuristic_choice
 
 
 
