@@ -77,7 +77,7 @@ class Options:
     max_turns: int | None = 25
     randomize_moves: bool = True
     broker: str | None = None
-    ai_difficulty: int | None=0
+    heuristic_choice: int | None=0
 
 
 ##############################################################################################################
@@ -711,15 +711,44 @@ class Game:
             weights[unit_type] * (player_counts[Player.Attacker][unit_type] - player_counts[Player.Defender][unit_type])
             for unit_type in unit_types)
 
+    def evaluate_state_advanced(self) -> int:
+        board_health_diff = self.calculate_board_health_diff()
+        ai_health_diff = self.calculate_ai_health_diff()
+        distance_to_opponent_ai = self.calculate_distance_to_opponent_ai()
+
+        return board_health_diff + ai_health_diff + distance_to_opponent_ai
+
+    def calculate_board_health_diff(self) -> int:
+        attacker_health = sum(unit.health for _, unit in self.player_units(Player.Attacker))
+        defender_health = sum(unit.health for _, unit in self.player_units(Player.Defender))
+
+        return defender_health - attacker_health
+
+    def calculate_ai_health_diff(self) -> int:
+        attacker_ai_health = next(
+            unit.health for _, unit in self.player_units(Player.Attacker) if unit.type == UnitType.AI)
+        defender_ai_health = next(
+            unit.health for _, unit in self.player_units(Player.Defender) if unit.type == UnitType.AI)
+
+        return defender_ai_health - attacker_ai_health
+
+    def calculate_distance_to_opponent_ai(self) -> int:
+        attacker_ai_coord = next(
+            coord for coord, unit in self.player_units(Player.Attacker) if unit.type == UnitType.AI)
+        defender_ai_coord = next(
+            coord for coord, unit in self.player_units(Player.Defender) if unit.type == UnitType.AI)
+
+        return abs(attacker_ai_coord[0] - defender_ai_coord[0]) + abs(attacker_ai_coord[1] - defender_ai_coord[1])
+
     def minimax_move(self, depth: int, maximizing_player: bool) -> Tuple[int, CoordPair | None, int]:
         if depth == 0 or self.is_finished():
             # Base case: Return the evaluation score, None for move, and depth of 0.
-            if self.options.ai_difficulty == 0:
+            if self.options.heuristic_choice == 0:
                 return int(self.evaluate_state()), None
-            elif self.options.ai_difficulty == 1:
+            elif self.options.heuristic_choice == 1:
                 return int(self.evaluate_state1()), None
-            elif self.options.ai_difficulty == 2:
-                return int(self.evaluate_state2()), None
+            elif self.options.heuristic_choice == 2:
+                return int(self.evaluate_state_advanced()), None
 
         move_candidates = list(self.move_candidates())
         best_move = move_candidates[0]
@@ -759,11 +788,11 @@ class Game:
         int, CoordPair | None, int]:
         if depth == 0 or self.is_finished():
             # Base case: Return the evaluation score, None for move, and depth of 0.
-            if self.options.ai_difficulty == 0:
+            if self.options.heuristic_choice == 0:
                 return int(self.evaluate_state()), None, 0
-            elif self.options.ai_difficulty == 1:
+            elif self.options.heuristic_choice == 1:
                 return int(self.evaluate_state1()), None, 0
-            elif self.options.ai_difficulty == 2:
+            elif self.options.heuristic_choice == 2:
                 return int(self.evaluate_state2()), None, 0
 
         move_candidates = list(self.move_candidates())
@@ -883,7 +912,7 @@ class Game:
 
 def get_heuristic_choice():
     while True:
-        print("Choose AI difficulty:")
+        print("Enter heuristic choice between 0 and 2:")
         print("0. e0")
         print("1. e1")
         print("2. e2")
@@ -916,6 +945,7 @@ def get_user_input():
             game_type = int(game_type_str)
             if 0 == game_type:
                 game_type = GameType.AttackerVsDefender
+                heuristic_choice = None
                 break
             if 1 == game_type:
                 game_type = GameType.AttackerVsComp
@@ -981,7 +1011,7 @@ def main():
         game_type = GameType.CompVsComp
 
         # Get user input for max turns, max seconds, and alpha-beta pruning
-    game_type, max_turns, max_seconds, alpha_beta, ai_difficulty = get_user_input()
+    game_type, max_turns, max_seconds, alpha_beta, heuristic_choice = get_user_input()
 
 
     # Set up game options
@@ -990,7 +1020,7 @@ def main():
         max_turns=max_turns,
         max_time=max_seconds,
         alpha_beta=alpha_beta,
-        ai_difficulty=ai_difficulty
+        heuristic_choice=heuristic_choice
     )
 
     # override class defaults via command line options
