@@ -1053,9 +1053,7 @@ def main():
 
     # create a new game
     game = Game(options=options)
-    logger = TraceLogger()
-    logger.init('gameTrace-False-5.0-100.txt')
-    logger.write("output312321")
+
     # the main game loop
     while True:
         print()
