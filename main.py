@@ -492,8 +492,6 @@ class Game:
                         amount = src_unit.repair_amount(dst_unit)
                         if amount > 0:
                             dst_unit.health += amount
-                            logger.write(
-                                f"{self.next_player.name}'s {src_unit.type.name} at {coords.src} repairing friendly {dst_unit.type.name} at {coords.dst}.\n")
                             return True, f"Repair successful. {dst_unit.type} is healed by {amount} health."
                     else:
                         return False, "Invalid move: The unit is already at full health."
