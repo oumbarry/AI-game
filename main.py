@@ -744,11 +744,11 @@ class Game:
         if depth == 0 or self.is_finished():
             # Base case: Return the evaluation score, None for move, and depth of 0.
             if self.options.heuristic_choice == 0:
-                return int(self.evaluate_state()), None
+                return int(self.evaluate_state()), None, 0
             elif self.options.heuristic_choice == 1:
-                return int(self.evaluate_state1()), None
+                return int(self.evaluate_state1()), None, 0
             elif self.options.heuristic_choice == 2:
-                return int(self.evaluate_state_advanced()), None
+                return int(self.evaluate_state_advanced()), None, 0
 
         move_candidates = list(self.move_candidates())
         best_move = move_candidates[0]
@@ -761,6 +761,10 @@ class Game:
                 new_game = self.clone()
                 new_game.perform_move(move)
                 value, _, child_depth = new_game.minimax_move(depth - 1, False)
+                if depth in self.stats.evaluations_per_depth:
+                    self.stats.evaluations_per_depth[depth] += 1
+                else:
+                    self.stats.evaluations_per_depth[depth] = 1
                 if value > best_value:
                     best_value = value
                     best_move = move
@@ -776,6 +780,10 @@ class Game:
                 new_game = self.clone()
                 new_game.perform_move(move)
                 value, _, child_depth = new_game.minimax_move(depth - 1, True)
+                if depth in self.stats.evaluations_per_depth:
+                    self.stats.evaluations_per_depth[depth] += 1
+                else:
+                    self.stats.evaluations_per_depth[depth] = 1
                 if value < worst_value:
                     worst_value = value
                     best_move = move
@@ -806,6 +814,10 @@ class Game:
                 new_game = self.clone()
                 new_game.perform_move(move)
                 value, _, child_depth = new_game.alphabeta(depth - 1, alpha, beta, False)
+                if depth in self.stats.evaluations_per_depth:
+                    self.stats.evaluations_per_depth[depth] += 1
+                else:
+                    self.stats.evaluations_per_depth[depth] = 1
                 if value > best_value:
                     best_value = value
                     best_move = move
@@ -824,6 +836,10 @@ class Game:
                 new_game = self.clone()
                 new_game.perform_move(move)
                 value, _, child_depth = new_game.alphabeta(depth - 1, alpha, beta, True)
+                if depth in self.stats.evaluations_per_depth:
+                    self.stats.evaluations_per_depth[depth] += 1
+                else:
+                    self.stats.evaluations_per_depth[depth] = 1
                 if value < worst_value:
                     worst_value = value
                     best_move = move
@@ -839,6 +855,8 @@ class Game:
     def suggest_move(self) -> CoordPair | None:
         """Suggest the next move using the Minimax algorithm with e0 heuristic."""
         start_time = datetime.now()
+        for depth in range(1, self.options.max_depth + 1):
+            self.stats.evaluations_per_depth[depth] = 0
         if self.options.alpha_beta:
             (score, move, avg_depth) = self.alphabeta(self.options.max_depth, float('-inf'), float('inf'), self.next_player == Player.Attacker)
         else:
