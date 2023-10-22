@@ -457,7 +457,6 @@ class Game:
                 self.remove_dead(coords.src)
             if not dst_unit.is_alive():
                 self.remove_dead(coords.dst)
-            logger.write(f"{self.next_player.name}'s {src_unit.type.name} self-destructing at: {coords.src}!\n")
             return True, "Self-destruct successful"
 
         # Attack
@@ -478,12 +477,8 @@ class Game:
                     self.remove_dead(coords.dst)
 
                 if src_unit.is_alive():
-                    logger.write(
-                        f"{self.next_player.name}'s {src_unit.type.name} at {coords.src} attacking enemy's {dst_unit.type.name} at {coords.dst}.\n")
                     return True, "attack successful"
                 else:
-                    logger.write(
-                        f"{self.next_player.name}'s {src_unit.type.name} at {coords.src} attacking enemy's {dst_unit.type.name} at {coords.dst}. Source unit defeated!\n")
                     return True, "attack successful, source unit defeated"
             else:
                 return False, "Invalid move: Cannot move onto the same position as the target unit after attacking"
@@ -519,7 +514,7 @@ class Game:
             if src_unit.is_alive():
                 self.set(coords.dst, src_unit)
                 self.set(coords.src, None)
-                logger.write(f"{self.next_player.name}'s move: {coords.src} to {coords.dst}.\n")
+                
                 return True, "Move successful"
             else:
                 return False, "Invalid move: Source unit is defeated."
