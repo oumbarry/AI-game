@@ -286,7 +286,8 @@ class Game:
         timeout = self.options.max_time
         max_turns = self.options.max_turns
         game_type = self.options.game_type
-
+        heuristic_choice = self.options.heuristic_choice
+        
         filename = f'gameTrace-{is_ai}-{timeout}-{max_turns}.txt'
 
         player_one = "Human" if game_type == GameType.AttackerVsDefender else "AI"
@@ -300,7 +301,7 @@ class Game:
         ]
 
         if game_type != GameType.AttackerVsDefender:
-            table_data.append(["Heuristic", "e0 e1 e2"])
+            table_data.append(["Heuristic", f"e{heuristic_choice}"],)
 
         table_str = "\n".join(["\t".join(row) for row in table_data])
 
@@ -731,7 +732,7 @@ class Game:
         defender_ai_coord = next(
             coord for coord, unit in self.player_units(Player.Defender) if unit.type == UnitType.AI)
 
-        return abs(attacker_ai_coord[0] - defender_ai_coord[0]) + abs(attacker_ai_coord[1] - defender_ai_coord[1])
+        return abs(attacker_ai_coord.row - defender_ai_coord.row) + abs(attacker_ai_coord.col - defender_ai_coord.col)
 
     def minimax_move(self, depth: int, maximizing_player: bool) -> Tuple[int, CoordPair | None, int]:
         if depth == 0 or self.is_finished():
@@ -996,7 +997,8 @@ def get_user_input():
     # Get user input for alpha-beta pruning (True/False)
     if int(game_type_str) >=1:
         alpha_beta_str = input("Enable alpha-beta pruning (True/False): ").lower()
-        alpha_beta = alpha_beta_str == 'true'
+        alpha_beta = alpha_beta_str
+        
 
     return game_type, max_turns, max_seconds, alpha_beta, heuristic_choice
 
