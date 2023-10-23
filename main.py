@@ -873,10 +873,7 @@ class Game:
         self.stats.total_seconds += elapsed_seconds
         print(f"Heuristic score: {score}")
         #print(f"Average recursive depth: {avg_depth:0.1f}")
-        print(f"Evals per depth: ", end='')
-        for k in sorted(self.stats.evaluations_per_depth.keys()):
-            print(f"{k}:{self.stats.evaluations_per_depth[k]} ", end='')
-        print()
+
         total_evals = sum(self.stats.evaluations_per_depth.values())
         print(f"Cumulative evals: {total_evals}")  # Format in millions
 
@@ -955,11 +952,11 @@ class Game:
 
 def get_heuristic_choice():
     while True:
-        print("Enter heuristic choice between 0 and 2:")
+        print("There are three choices of heuristics:")
         print("0. e0")
         print("1. e1")
         print("2. e2")
-        heuristic_choice_str = input("Enter the number corresponding to AI difficulty: ")
+        heuristic_choice_str = input("Enter heuristic choice between 0 and 2:")
         if heuristic_choice_str.isdigit():
             heuristic_choice = int(heuristic_choice_str)
             if 0 == heuristic_choice:
