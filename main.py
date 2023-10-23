@@ -719,18 +719,31 @@ class Game:
         return defender_health - attacker_health
 
     def calculate_ai_health_diff(self) -> int:
-        attacker_ai_health = next(
-            unit.health for _, unit in self.player_units(Player.Attacker) if unit.type == UnitType.AI)
-        defender_ai_health = next(
-            unit.health for _, unit in self.player_units(Player.Defender) if unit.type == UnitType.AI)
+        try:
+            attacker_ai_health = next(
+                unit.health for _, unit in self.player_units(Player.Attacker) if unit.type == UnitType.AI)
+        except StopIteration:
+            attacker_ai_health = 0
+
+        try:
+            defender_ai_health = next(
+                unit.health for _, unit in self.player_units(Player.Defender) if unit.type == UnitType.AI)
+        except StopIteration:
+            defender_ai_health = 0
 
         return defender_ai_health - attacker_ai_health
 
     def calculate_distance_to_opponent_ai(self) -> int:
-        attacker_ai_coord = next(
-            coord for coord, unit in self.player_units(Player.Attacker) if unit.type == UnitType.AI)
-        defender_ai_coord = next(
+        try:
+            attacker_ai_coord = next(
+                coord for coord, unit in self.player_units(Player.Attacker) if unit.type == UnitType.AI)
+        except StopIteration:
+            return 0
+        try:
+            defender_ai_coord = next(
             coord for coord, unit in self.player_units(Player.Defender) if unit.type == UnitType.AI)
+        except StopIteration:
+            return 0
 
         return abs(attacker_ai_coord.row - defender_ai_coord.row) + abs(attacker_ai_coord.col - defender_ai_coord.col)
 
