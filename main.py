@@ -872,12 +872,30 @@ class Game:
         elapsed_seconds = (datetime.now() - start_time).total_seconds()
         self.stats.total_seconds += elapsed_seconds
         print(f"Heuristic score: {score}")
-        print(f"Average recursive depth: {avg_depth:0.1f}")
+        #print(f"Average recursive depth: {avg_depth:0.1f}")
         print(f"Evals per depth: ", end='')
         for k in sorted(self.stats.evaluations_per_depth.keys()):
             print(f"{k}:{self.stats.evaluations_per_depth[k]} ", end='')
         print()
         total_evals = sum(self.stats.evaluations_per_depth.values())
+        print(f"Cumulative evals: {total_evals}")  # Format in millions
+
+        print("Cumulative evals by depth:", end=' ')
+        for k in sorted(self.stats.evaluations_per_depth.keys()):
+            print(f"{k}={self.stats.evaluations_per_depth[k]}", end=', ')
+        print()
+
+        print("Cumulative % evals by depth:", end=' ')
+        for k in sorted(self.stats.evaluations_per_depth.keys()):
+            percentage = (self.stats.evaluations_per_depth[k] / total_evals) * 100
+            print(f"{k}={percentage:.1f}%", end=', ')
+        print()
+
+        # Calculate average branching factor
+        total_nodes = sum(self.stats.evaluations_per_depth.values())
+        total_depths = len(self.stats.evaluations_per_depth)
+        average_branching_factor = total_nodes / total_depths if total_depths > 0 else 0
+        print(f"Average branching factor: {average_branching_factor:.1f}")
         if self.stats.total_seconds > 0:
             print(f"Eval performance: {total_evals / self.stats.total_seconds / 1000:0.1f}k/s")
         print(f"Elapsed time: {elapsed_seconds:0.1f}s")
